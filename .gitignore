@@ -16,12 +16,17 @@ pytest-cache-files-*/
 .vscode/
 .idea/
 
+# Large model cache binary files exceeding GitHub 100MB limit
+*.joblib
+cache/*.joblib
+
 # OS and temporary files
 .DS_Store
 Thumbs.db
 *.tmp
 *.log
 food_recommender.db.local_backup
+startup_profile.json
 
 # Large raw dataset files exceeding GitHub 100MB limit
 # (food_recommender.py uses info/*.csv and cache/*.parquet, never reads data/)
