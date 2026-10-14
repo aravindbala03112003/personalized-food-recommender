@@ -1,0 +1,325 @@
+# Kubernetes Deployment Configuration for DINE MATE
+# Production-ready Kubernetes manifests
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: food-recommender-web
+  namespace: food-recommender
+  labels:
+    app: food-recommender
+    component: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: food-recommender
+      component: web
+  template:
+    metadata:
+      labels:
+        app: food-recommender
+        component: web
+    spec:
+      containers:
+      - name: streamlit-app
+        image: food-recommender:latest
+        ports:
+        - containerPort: 8501
+        env:
+        - name: STREAMLIT_SERVER_HEADLESS
+          value: "true"
+        - name: STREAMLIT_SERVER_PORT
+          value: "8501"
+        - name: STREAMLIT_SERVER_ADDRESS
+          value: "0.0.0.0"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: RANDOM_STATE
+          value: "42"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        volumeMounts:
+        - name: data-storage
+          mountPath: /app/data
+        - name: models-storage
+          mountPath: /app/models
+        - name: logs-storage
+          mountPath: /app/logs
+      volumes:
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: food-recommender-data-pvc
+      - name: models-storage
+        persistentVolumeClaim:
+          claimName: food-recommender-models-pvc
+      - name: logs-storage
+        persistentVolumeClaim:
+          claimName: food-recommender-logs-pvc
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: food-recommender-api
+  namespace: food-recommender
+  labels:
+    app: food-recommender
+    component: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: food-recommender
+      component: api
+  template:
+    metadata:
+      labels:
+        app: food-recommender
+        component: api
+    spec:
+      containers:
+      - name: flask-api
+        image: food-recommender:latest
+        command: ["python", "flask_api.py"]
+        ports:
+        - containerPort: 5000
+        env:
+        - name: FLASK_ENV
+          value: "production"
+        - name: API_HOST
+          value: "0.0.0.0"
+        - name: API_PORT
+          value: "5000"
+        - name: API_DEBUG
+          value: "false"
+        - name: LOG_LEVEL
+          value: "INFO"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 5000
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 5000
+          initialDelaySeconds: 60
+          periodSeconds: 15
+        volumeMounts:
+        - name: data-storage
+          mountPath: /app/data
+        - name: models-storage
+          mountPath: /app/models
+        - name: logs-storage
+          mountPath: /app/logs
+      volumes:
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: food-recommender-data-pvc
+      - name: models-storage
+        persistentVolumeClaim:
+          claimName: food-recommender-models-pvc
+      - name: logs-storage
+        persistentVolumeClaim:
+          claimName: food-recommender-logs-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: food-recommender-web-service
+  namespace: food-recommender
+spec:
+  selector:
+    app: food-recommender
+    component: web
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8501
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: food-recommender-api-service
+  namespace: food-recommender
+spec:
+  selector:
+    app: food-recommender
+    component: api
+  ports:
+  - name: http
+    port: 80
+    targetPort: 5000
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: food-recommender-ingress
+  namespace: food-recommender
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  tls:
+  - hosts:
+    - foodrecommender.example.com
+    - api.foodrecommender.example.com
+    secretName: food-recommender-tls
+  rules:
+  - host: foodrecommender.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: food-recommender-web-service
+            port:
+              number: 80
+  - host: api.foodrecommender.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: food-recommender-api-service
+            port:
+              number: 80
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: food-recommender-data-pvc
+  namespace: food-recommender
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: food-recommender-models-pvc
+  namespace: food-recommender
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: food-recommender-logs-pvc
+  namespace: food-recommender
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: standard
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: food-recommender
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: food-recommender-web-hpa
+  namespace: food-recommender
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: food-recommender-web
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: food-recommender-api-hpa
+  namespace: food-recommender
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: food-recommender-api
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

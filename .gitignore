@@ -1,0 +1,32 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.bak
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Testing and IDE caches
+.pytest_cache/
+pytest-cache-files-*/
+.vscode/
+.idea/
+
+# OS and temporary files
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+food_recommender.db.local_backup
+
+# Large raw dataset files exceeding GitHub 100MB limit
+# (food_recommender.py uses info/*.csv and cache/*.parquet, never reads data/)
+data/
+data/*.csv
+
+# Streamlit local secrets
+.streamlit/secrets.toml
