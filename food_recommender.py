@@ -3055,6 +3055,11 @@ def main():
     else:
         auto_train_research_if_needed()
 
+    # Ensure optional advanced ML libraries are initialized
+    ensure_surprise()
+    ensure_bert()
+    ensure_torch()
+
     # Dependency status
     missing_deps = []
     if not SURPRISE_AVAILABLE:
