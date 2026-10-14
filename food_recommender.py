@@ -31,23 +31,20 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.cluster import KMeans
 import pickle
 
-# Try to import advanced libraries with better error handling
-try:
-    from surprise import Dataset, Reader, KNNBaseline, SVD
-    from surprise.model_selection import train_test_split as surprise_split, cross_validate
-    from surprise import accuracy
-    SURPRISE_AVAILABLE = True
-except ImportError:
-    SURPRISE_AVAILABLE = False
+# Surprise collaborative filtering - lazy loaded via ensure_surprise()
+SURPRISE_AVAILABLE = False
+Dataset = None
+Reader = None
+KNNBaseline = None
+SVD = None
+surprise_split = None
+cross_validate = None
+accuracy = None
 
-# BERT implementation with proper error handling
-try:
-    import os
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-    from sentence_transformers import SentenceTransformer, util
-    BERT_AVAILABLE = True
-except:
-    BERT_AVAILABLE = False
+# BERT implementation - lazy loaded via ensure_bert() to prevent watcher recursion
+BERT_AVAILABLE = False
+SentenceTransformer = None
+util = None
 
 try:
     import shap
@@ -55,14 +52,11 @@ try:
 except ImportError:
     SHAP_AVAILABLE = False
 
-# PyTorch for GNN
-try:
-    import torch
-    import torch.nn as nn
-    import torch.nn.functional as F
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+# PyTorch for GNN - lazy loaded via ensure_torch()
+TORCH_AVAILABLE = False
+torch = None
+nn = None
+F = None
 
 warnings.filterwarnings('ignore')
 
